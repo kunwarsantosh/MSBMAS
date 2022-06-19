@@ -1,0 +1,851 @@
+
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+
+---
+title: "The willingness to Pay for Locally Produced Food among Norwegians"
+author: "Learning Team 1"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global-options, include=TRUE, results=TRUE, cache =TRUE}
+library(knitr)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE,
+                      message = FALSE, echo = TRUE,
+                      dpi = 180, fig.width = 8, fig.width = 5)
+library(tidyverse)
+library(ggplot2)
+library(sandwich)
+library(stargazer)
+library(GGally)
+library(lme4)
+library(MASS)
+
+```
+
+Lets build a model using the Norsk Monitoring Data to look into willingness to pay for locally produced food among Norwegian population. 
+
+##set working directory
+```{r}
+setwd("C:/Users/santosh.kunwar01/Documents/R/EUR/MOA107")
+gc()
+rm(list = ls(all.names = TRUE))
+```
+##import data
+
+```{r, results=FALSE}
+library(haven)
+NMDD <- haven::read_sav("Norsk_Monitor_Total_1985-2019_SPSS_31mars.sav")
+
+```
+
+##explore data
+```{r, results=FALSE}
+NMDD
+```
+
+
+##coerce survey Year as Date class
+
+```{r}
+##NMDD$s_year <- as.Date(NMDD$Year, format = "%Y")
+
+```
+
+##Check class of s_year
+
+```{r}
+#class(NMDD$s_year)
+
+```
+
+##check if respondent are repeated over the years
+
+```{r, results=FALSE}
+n_occur <- data.frame(table(NMDD$rspnr))
+
+n_occur[n_occur$Freq > 1,]
+
+```
+
+##create new table by comprising only the years where the question
+Willingness to pay more for local food was introduced (2013 on wards
+in this case) and subset with variables of interest]
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+NMD <- subset(NMDD, Year >= "2013",
+              select = c(
+                rspnr,
+                Year,
+                Kjonn,
+                Alder,
+                V34,
+                Q227_5,
+                Q227_6,
+                Q244,
+                Q245_1,
+                Q245_2,
+                Q245_3,
+                Q245_4,
+                Q245_5,
+                Q245_6,
+                Q245_7,
+                Q251_24,
+                Q258_5,
+                Q269_17))
+```
+
+##check NMD
+
+```{r}
+NMD
+```
+
+
+##check if respondent were repeated
+```{r, results = FALSE}
+noccur <- data.frame(table(NMD$rspnr))
+noccur[noccur$Freq > 1,]
+
+```
+
+#rename variable labels of variables of interest for convenient reading
+
+```{r}
+NMD <- rename(NMD, 
+       gender= Kjonn,
+       age= Alder ,
+       edu_level= V34,
+       pay_more= Q227_5 ,
+       env_con_food= Q227_6 ,
+       buy_often= Q244 ,
+       place_regular_grocery= Q245_1 ,
+       place_farmers_market= Q245_2,
+       place_farm_shop= Q245_3,
+       place_special_store= Q245_4 ,
+       place_food_festival= Q245_5,
+       place_elsewhere= Q245_6,
+       not_purchased= Q245_7,
+       freq_ost= Q251_24 ,
+       freq_beer= Q258_5 ,
+       good_selection_avail = Q269_17 )
+
+```
+
+##Check for renaming of variables
+
+```{r}
+NMD
+```
+##know value labels and change spss "labelling" to haven labelled, recode variables as necessary
+
+```{r, results= FALSE}
+#load expss
+library(expss)
+```
+
+```{r}
+expss::val_lab(NMD$gender) #level2, 1 = Mann, 2 = Kvinne
+
+```
+#Recode Value levels, and variable labels
+
+#recode value levels (Kvinnne = 1, and Mann = 0)
+
+```{r}
+NMD$gender_factor <- with(NMD, 
+                          if_else(gender == 1, 0,
+                               if_else(gender == 2, 1,
+                                       as.numeric(gender)        
+                                               )))
+
+
+NMD$gender_factor <- (labelled(NMD$gender_factor,
+                                 c("Female" =1,
+                                   "Male" = 0),
+                                 label = "gender"
+                               ))
+
+
+expss::val_lab(NMD$gender_factor)
+```
+
+
+##check edu_level 
+```{r}
+expss::val_lab(NMD$edu_level)#level 5, 1=8 years school, 5 = Masters
+```
+
+##recode value levels of variable edu_level
+```{r}
+NMD$edu_level_factor <- labelled(NMD$edu_level,
+                                 c("Inntil 8 years school" =1,
+                                   "9-10 years school" =2,
+                                   "11-13 years school" = 3,
+                                   "Bachelors" = 4,
+                                   "Masters" = 5),
+                                 label = "Education Level")
+
+
+expss::val_lab(NMD$edu_level_factor)
+  
+```
+
+##check value levels for pay_more
+```{r}
+
+expss::val_lab(NMD$pay_more) #levels 4, 1=Strongly Agree
+```
+
+#recode value levels (Strongly Disagree = 1, and Strongly Agree = 4)
+
+```{r}
+NMD$pay_more_factor <- with(NMD, if_else(pay_more ==1, 4,
+                              if_else(pay_more == 2, 3,
+                                if_else(pay_more == 3, 2,
+                                  if_else(pay_more == 4,1,
+                                    as.numeric(pay_more)        
+                              )))))
+
+
+NMD$pay_more_factor <- (labelled(NMD$pay_more_factor,
+                                 c("Strongly Disagree" =1,
+                                   "Partially Disagree" = 2,
+                                   "Partially Agree" =3,
+                                   "Strongly Agree" = 4),
+                                 label = "Willing to Pay More"
+))
+
+expss::val_lab(NMD$pay_more_factor)
+```
+
+
+##check value levels env_con_food
+```{r}
+expss::val_lab(NMD$env_con_food) #levels 4, 1=Strongly Agree
+
+```
+##Recode value levels (Strongly Disagree = 1, and Strongly Agree = 4)
+
+```{r}
+NMD$env_con_food_factor <- with(NMD,
+                if_else(env_con_food ==1, 4,
+                             if_else(env_con_food == 2, 3,
+                                     if_else(env_con_food == 3, 2,
+                                             if_else(env_con_food == 4,1,
+                                                     as.numeric(pay_more)        
+                                             )))))
+
+
+NMD$env_con_food_factor <- (labelled(NMD$env_con_food_factor,
+                                 c("Strongly Disagree" =1,
+                                   "Partially Disagree" = 2,
+                                   "Partially Agree" =3,
+                                   "Strongly Agree" = 4),
+                           label = "Environmentally Conscious Food Purchase"
+                            ))
+
+expss::val_lab(NMD$env_con_food_factor)
+
+```
+
+## check value levels
+
+```{r}
+expss::val_lab(NMD$Year)
+
+#####
+expss::val_lab(NMD$buy_often) #l 6 week/month/year/rarely/never/dont know
+```
+
+##recode  Weekly or more often =5, Never = 1
+
+```{r}
+
+NMD$buy_often_factor <- with(NMD,
+                         if_else(buy_often == 5,1,
+                                 if_else(buy_often == 4, 2,
+                                     if_else(buy_often == 3, 3,
+                                        if_else(buy_often == 2,4,
+                                         if_else(buy_often ==1, 5,
+                                           if_else(buy_often == 6, 6,
+                                                   as.numeric(buy_often)
+                                           
+                                              )))))))
+
+
+NMD$buy_often_factor <- (labelled(NMD$buy_often,
+                             c("Weekly or more often" = 5,
+                               "Monthly" = 4,
+                               "Sometimes a year" = 3,
+                               "Rarely" = 2,
+                               "Never" = 1,
+                               "Do not know"= 6),
+                             label = "Frequency of Local Food Purchase"
+                              ))
+expss::val_lab(NMD$buy_often_factor)
+
+```
+
+##recode value levels
+
+```{r}
+expss::val_lab(NMD$place_regular_grocery)# dummy 1
+
+NMD$place_grocery_factor <- (labelled(NMD$place_regular_grocery,
+                                      c("Yes" = 1,
+                                        "No" = 0),
+                                      label = "Purchase in Regular Grocery"
+))
+
+expss::val_lab(NMD$place_grocery_factor)
+
+```
+
+##check and recode variable place_farmers_market
+
+```{r}
+expss::val_lab(NMD$place_farmers_market) #dummy 1
+
+NMD$place_farmer_market_factor <- (labelled(NMD$place_farmers_market,
+                                            c("Yes" = 1,
+                                              "No" = 0),
+                                            label = "Purchase in Farmer Market"
+))
+
+expss::val_lab(NMD$place_farmer_market_factor)
+
+```
+
+##check and recode variable place_farm_shop
+
+```{r}
+expss::val_lab(NMD$place_farm_shop) #dummy 1
+
+
+NMD$place_farm_shop_factor <- (labelled(NMD$place_farm_shop,
+                                        c("Yes" = 1,
+                                          "No" = 0),
+                                        label = "Purchase in Farm Shop"
+))
+
+expss::val_lab(NMD$place_farm_shop_factor)
+
+```
+
+## check and recode variable
+
+```{r}
+expss::val_lab(NMD$place_special_store)#dummy 1
+
+
+```
+
+
+##check and recode variable place_special_store
+
+```{r}
+NMD$place_special_store_factor <- (labelled(NMD$place_special_store,
+                                            c("Yes" = 1,
+                                              "No" = 0),
+                                            label = "Purchase in Special Store"
+))
+
+expss::val_lab(NMD$place_special_store_factor)
+```
+
+## check and recode variable place_food_festival
+
+```{r}
+expss::val_lab(NMD$place_food_festival) #purchased at food festival dum 1
+
+NMD$place_festival_factor <- (labelled(NMD$place_food_festival,
+                                       c("Yes" = 1,
+                                         "No" = 0),
+                                       label = "Purchase at Food Festival"
+))
+
+expss::val_lab(NMD$place_festival_factor)
+```
+
+##check and recode variable place_elsewhere
+
+```{r}
+expss::val_lab(NMD$place_elsewhere) #purchased elsewhere dummy 1
+
+NMD$place_elsewhere_factor <- (labelled(
+  NMD$place_elsewhere,
+  c("Yes" = 1,
+    "No" = 0),
+  label = "Purchased elsewhere"
+))
+
+expss::val_lab(NMD$place_elsewhere_factor)
+```
+
+##check and recode variable not_purchased
+
+```{r}
+expss::val_lab(NMD$not_purchased) #not purchased since 12 months dummy 1
+
+NMD$not_purchased_factor <- (labelled(
+  NMD$not_purchased,
+  c("not_purchased_within_12_monthsr" = 1,
+    "purchased_within_12_month" = 0),
+  label = "Not Purchased since 12 months"
+))
+expss::val_lab(NMD$not_purchased_factor)
+```
+
+##check and recode variable freq_ost
+
+```{r}
+expss::val_lab(NMD$freq_ost) #8 levels
+
+
+NMD$freq_ost_factor <- with(NMD,
+                            if_else(freq_ost == 8,1,
+                              if_else(freq_ost == 7,2,
+                                if_else(freq_ost == 6,3,
+                                  if_else(freq_ost == 5,4,
+                                    if_else(freq_ost == 4,5,
+                                      if_else(freq_ost == 3,6,
+                                        if_else(freq_ost == 2,7,
+                                          if_else(freq_ost == 1,8,
+                                            as.numeric(freq_ost)
+                                            )))))))))
+
+
+NMD$freq_ost_factor <- (labelled(NMD$freq_ost_factor,
+                           c("Never" = 1,
+                             "Rarely" = 2,
+                             "3-11 Times/Year" = 3,
+                             "Once a Month" = 4,
+                             "2-3 Times a Month" = 5,
+                             "1-2 Times a Week" = 6,
+                             "3-5 Times a Week" = 7,
+                             "Daily" = 8),
+                             label = "Frequency of Local Ost Consumption"))
+
+
+expss::val_lab(NMD$freq_ost_factor)
+
+```
+
+## check and recode value levels
+
+```{r}
+expss::val_lab(NMD$freq_beer) #8 levels
+
+
+NMD$freq_beer_factor <- with(NMD,
+                            if_else(freq_beer == 8,1,
+                              if_else(freq_beer == 7,2,
+                                if_else(freq_beer == 6,3,
+                                  if_else(freq_beer == 5,4,
+                                    if_else(freq_beer == 4,5,
+                                      if_else(freq_beer == 3,6,
+                                        if_else(freq_beer == 2,7,
+                                          if_else(freq_beer == 1,8,
+                                          as.numeric(freq_beer)
+                                  )))))))))
+
+NMD$freq_beer_factor <- (labelled(NMD$freq_beer_factor,
+                                 c("Never" = 1,
+                                   "Rarely" = 2,
+                                   "3-11 Times/Year" = 3,
+                                   "Once a Month" = 4,
+                                   "2-3 Times a Month" = 5,
+                                   "1-2 Times a Week" = 6,
+                                   "3-5 Times a Week" = 7,
+                                   "Daily" = 8),
+                             label = "Frequency of Local Beer Consumption"))
+
+expss::val_lab(NMD$freq_beer_factor)
+```
+##check and recode level
+```{r}
+expss::val_lab(NMD$good_selection_avail) #4 levels
+
+NMD$good_select_avail_factor <- with(NMD,
+                                 if_else(good_selection_avail ==1,4,
+                                   if_else(good_selection_avail == 2,3,
+                                     if_else(good_selection_avail ==3,2,
+                                       if_else(good_selection_avail == 4,1,
+                                          as.numeric(good_selection_avail)     
+                                               )))))
+NMD$good_select_avail_factor <- (labelled(NMD$good_select_avail_factor,
+                                          c("Not Important" = 1,
+                                            "Slightly Important" = 2,
+                                            "Quite Important" = 3,
+                                            "Very Important" = 4
+                                            )))
+                                            
+expss::val_lab(NMD$good_select_avail_factor)
+
+```
+
+##set age groups
+
+```{r}
+agebreaks <- c(15, 35, 55, 75, 96)
+
+agelabels <- c("15-35", "36-55", "56-75",
+               "76-96")
+
+setDT(NMD)[, agegroups := cut(age,
+                              breaks = agebreaks,
+                              right = FALSE,
+                              lables = agelabels)]
+expss::val_lab(NMD$agegroups)
+```
+
+
+```{r}
+NMD %>%
+  group_by(Year = Year) %>%
+  summarize(gender = mean(gender),
+            pay_more = mean(pay_more))
+
+```
+
+##see correlation and scatter plot, check for multicollinearity 
+
+```{r, message=FALSE, warning=FALSE}
+library(GGally)
+
+ggpairs(as_factor(NMD)[,c("gender_factor",
+               "age",
+               "edu_level_factor",
+               "pay_more_factor",
+               "env_con_food_factor",
+               "buy_often_factor"
+)])
+
+ggpairs(NMD[,c("pay_more_factor",
+                "gender_factor",
+                "age",
+                "edu_level_factor",
+                "env_con_food_factor",
+                "buy_often_factor"
+)])
+
+
+ggpairs(NMD[,c("pay_more_factor",
+               "freq_ost_factor",
+               "freq_beer_factor"
+)])
+
+
+```
+
+##change pay_more to binary by grouping Agree and Slightly Agree to 1, and Slightly disagree and Disagree to 0
+
+```{r}
+
+NMD$pay_more_WTP <- ifelse(
+                    NMD$pay_more_factor ==1 |
+                      NMD$pay_more_factor ==2, 0,
+                           NMD$pay_more_factor)
+NMD$pay_more_WTP <- ifelse(
+                    NMD$pay_more_factor ==3 | 
+                      NMD$pay_more_factor ==4, 1,
+                           NMD$pay_more_WTP)
+NMD$pay_more_WTP <- as_factor(NMD$pay_more_WTP)
+
+```
+
+##check for Missingness and go for imputation
+##leave this unless Gorm has no problem with missingness
+
+```{r, message=FALSE, warning= FALSE}
+library(skimr)
+
+skimr::skim(NMD)
+
+```
+
+
+#Summary Statistics
+
+```{r, message = FALSE, warning=FALSE}
+
+req <- substitute(require(x, character.only = TRUE))
+libs<-c("sjPlot")
+sapply(libs, function(x) eval(req) || {install.packages(x); eval(req)})
+library(sjPlot)
+
+sjPlot::tab_xtab(var.row = NMD$edu_level_factor, var.col = NMD$pay_more_factor,
+                 NMD$gender_factor,
+                 title = "Tabulation of Education Level and WIllingness to Pay",
+                 file = "ed_pm.html", show.row.prc = TRUE)
+
+sjPlot::tab_xtab(var.row = NMD$gender_factor, var.col = NMD$pay_more_factor,
+                 title = "Tabulation of Gender and WIllingness to Pay",
+                 file = "g_pm.html",
+                 show.row.prc = TRUE)
+
+sjPlot::tab_xtab(var.row = NMD$env_con_food_factor, 
+                 var.col = NMD$pay_more_factor,
+                 title = "Tabulation of Environmental conscious consumption habit 
+                 and WIllingness to Pay", file = "env_pm.html",
+                 show.row.prc = TRUE)
+
+sjPlot::tab_xtab(var.row = NMD$freq_beer_factor, var.col = NMD$pay_more_factor,
+                 title = "Tabulation of frequency of local beer consumption and WIllingness to Pay", file = "beer_pm.html",
+                 show.row.prc = TRUE)
+
+#object <- table(NMD$pay_more_factor, NMD$freq_beer_factor)
+#mosaicplot(object, main = "Frequency of Beer Consumption and WTP",
+ #          xlab = "X-axis label",
+  #         ylab = "Y-axis label", color = TRUE)
+
+
+sjPlot::tab_corr(NMD[, c("pay_more_factor", "gender_factor", "age", "buy_often_factor","env_con_food_factor", "freq_beer_factor", "freq_ost_factor", "good_select_avail_factor")], na.deletion = "listwise",
+corr.method = "pearson", title = "Correlation Matrix", show.p = TRUE, digits = 2, triangle = "lower", file = "Cor_Martix.html")
+```
+
+
+
+
+
+
+#Logistic Regression Models
+
+## Ordered Logistic Model 1
+
+```{r, warning=FALSE, message=FALSE}
+library(MASS)
+polr_1<-polr(as_factor(pay_more_factor)~ 
+                      as_factor(edu_level_factor),
+                      data= NMD, Hess=TRUE
+              )
+
+summary(polr_1)
+
+coeff_table <- coef(summary(polr_1))
+coeff_table
+
+for_se <- vcov(polr_1)
+
+for_se
+
+p_val <- pnorm(abs(coeff_table[, "t value"]), lower.tail = FALSE) * 2
+
+p_val
+## combined table
+combinedcoeff_table <- cbind(coeff_table, "p value" = round(p_val,3))
+
+combinedcoeff_table
+
+
+library(stargazer)
+stargazer(polr_1, digits = 3,
+          type = "html",
+          title = "Ordered Logistic Regression Table" , align = TRUE, 
+          out = "OLR.html",  
+          p = p_val,
+          se = for_se,
+          header = FALSE,
+          model.numbers = FALSE,
+          ord.intercepts = TRUE
+          )
+
+stargazer(for_se, type = "text", title = "VCOV", out = "vcov.txt", align = TRUE, header = FALSE)
+
+```
+
+
+
+## logit Model 1
+
+```{r}
+logit_1 <- glm (   pay_more_WTP ~
+                              gender_factor +
+                              age +
+                              edu_level_factor 
+                              ,
+                      family = binomial (link= "logit"),
+                      data = NMD)
+
+```
+
+```{r}
+logit_1
+
+```
+
+## logit model 2
+
+```{r}
+logit_2 <- glm (   pay_more_WTP ~
+                           gender_factor +
+                           age +
+                           edu_level_factor +
+                           buy_often_factor,
+                   family = binomial (link= "logit"),
+                   data = NMD)
+logit_2
+```
+
+## logit Model 3
+
+```{r}
+logit_3 <- glm (   pay_more_WTP ~
+                           gender_factor +
+                           age +
+                           edu_level_factor +
+                           buy_often_factor+
+                           freq_beer_factor +
+                           freq_ost_factor,
+                   family = binomial (link= "logit"),
+                   data = NMD)
+logit_3
+```
+
+##logit Model 4
+
+```{r}
+logit_4 <- glm (   pay_more_WTP ~
+                           gender_factor +
+                           age +
+                           edu_level_factor +
+                           buy_often_factor+
+                           freq_beer_factor +
+                           freq_ost_factor+
+                           env_con_food_factor,
+                   family = binomial (link= "logit"),
+                   data = NMD)
+logit_4
+```
+
+##logit_moel 5
+
+```{r}
+logit_5 <- glm (   pay_more_WTP ~
+                           gender_factor +
+                           age +
+                           edu_level_factor +
+                           buy_often_factor+
+                           freq_beer_factor +
+                           freq_ost_factor +
+                           env_con_food_factor +
+                           gender_factor*edu_level_factor+
+                           age*edu_level_factor,
+                   family = binomial (link= "logit"),
+                   data = NMD)
+logit_5
+```
+
+
+## GLMER Model 1
+
+```{r, warning=FALSE, message=FALSE}
+library(lme4)
+
+glmer_1 <- glmer(pay_more_WTP ~ gender_factor + edu_level_factor +
+             buy_often_factor + 
+             (1 | Year), data = NMD, family = binomial (link = "logit")
+)
+
+# print the mod results without correlations among fixed effects
+print(glmer_1, corr = FALSE)
+```
+
+##load heteroskedasticity-robust standard errors of coefficient estimators 
+in a list
+
+```{r, warning=FALSE, message=FALSE}
+
+library(sandwich)
+for_print_se <- list(
+                     sqrt(diag(vcovHC(logit_1, type = "HC1"))),
+                     sqrt(diag(vcovHC(logit_2, type = "HC1"))),  
+                     sqrt(diag(vcovHC(logit_3, type = "HC1"))),
+                     sqrt(diag(vcovHC(logit_4, type = "HC1"))),
+                     sqrt(diag(vcovHC(logit_5, type = "HC1"))))
+                     
+             
+```
+
+##see standard errors
+
+```{r}
+for_print_se
+
+```
+
+##print regression table
+
+```{r, message=FALSE, warning=FALSE, results="asis"}
+
+library(stargazer)
+stargazer(glmer_1,logit_1, logit_2, logit_3, logit_4, logit_5, 
+          digits = 3,
+          type = "html",
+          title = "NMD Regression Table" , align = TRUE, 
+          out = "Regression_Table.html",  
+          header = FALSE,
+          se = for_print_se,
+          model.numbers = FALSE,
+          column.labels = c("(1)", "(2)","(3)", "(4)", "(5)", "(6)"))
+```
+
+```{r, message=FALSE, warining=FALSE}
+
+library(AER)
+hyp1 <- linearHypothesis(logit_5, 
+                 test = "F",
+                 c("edu_level_factor = 0"
+                 ),
+                 vcov = vcovHC, type = "HC1")
+hyp2 <- linearHypothesis(logit_5, 
+                 test = "F",
+                 c("edu_level_factor = 0",
+                   "gender_factor = 0"
+                 ),
+                 vcov = vcovHC, type = "HC1")
+
+hyp3 <- linearHypothesis(logit_5, 
+                 test = "F",
+                 c("edu_level_factor = 0",
+                   "gender_factor = 0",
+                   "age = 0",
+                   "buy_often_factor =0"
+                 ),
+                 vcov = vcovHC, type = "HC1")
+
+hyp4 <- linearHypothesis(logit_5, 
+                 test = "F",
+                 c("edu_level_factor = 0",
+                   "gender_factor = 0",
+                   "age = 0",
+                   "buy_often_factor =0",
+                   "freq_beer_factor = 0",
+                   "gender_factor:edu_level_factor=0",
+                   "age:edu_level_factor = 0"
+                 ),
+                 vcov = vcovHC, type = "HC1")
+
+stargazer(hyp1, hyp2, hyp3, hyp4,
+          type = "html",
+          out = "Hypothesis2.html",
+          align = TRUE
+          
+          )
+
+```
+
+
+

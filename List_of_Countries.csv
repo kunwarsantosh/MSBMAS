@@ -1,0 +1,39 @@
+M49,Countries,Sub_Region,EU,EEA,OECD
+40,Austria,Western Europe,1,1,1
+36,Australia,Australia and New Zealand,0,0,1
+56,Belgium,Western Europe,1,1,1
+124,Canada,Northern America,0,0,1
+152,Chile,South America,0,0,1
+170,Colombia,South America,0,0,1
+188,Costa Rica,Central America,0,0,1
+203,Czechia,Eastern Europe,1,1,1
+208,Denmark,Northern Europe,1,1,1
+233,Estonia,Northern Europe,1,1,1
+246,Finland,Northern Europe,1,1,1
+250,France,Western Europe,1,1,1
+276,Germany,Western Europe,1,1,1
+300,Greece,Southern Europe,1,1,1
+348,Hungary,Eastern Europe,1,1,1
+352,Iceland,Northern Europe,0,1,1
+372,Ireland,Northern Europe,1,1,1
+376,Israel,Western Asia,0,0,1
+380,Italy,Southern Europe,1,1,1
+392,Japan,Eastern Asia,0,0,1
+410,Republic of Korea,Eastern Asia,0,0,1
+428,Latvia,Northern Europe,1,1,1
+440,Lithuania,Northern Europe,1,1,1
+442,Luxembourg,Western Europe,1,1,1
+484,Mexico,Central America,0,0,1
+528,Netherlands,Western Europe,1,1,1
+554,New Zealand,Australia and New Zealand,0,0,1
+578,Norway,Northern Europe,0,1,1
+616,Poland,Eastern Europe,1,1,1
+620,Portugal,Southern Europe,1,1,1
+703,Slovakia,Eastern Europe,1,1,1
+705,Slovenia,Southern Europe,1,1,1
+724,Spain,Southern Europe,1,1,1
+752,Sweden,Northern Europe,1,1,1
+756,Switzerland,Western Europe,0,0,1
+792,Turkey,Western Asia,0,0,1
+826,United Kingdom of Great Britain and Northern Ireland,Northern Europe,0,0,1
+840,United States of America,Northern America,0,0,1

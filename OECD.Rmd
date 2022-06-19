@@ -1,0 +1,56 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+
+---
+title: "Eco-Innovation in Circular Economy and their Role in achieving Sustaina
+ble Development Goals among OECD Countries"
+author: "Santosh Kunwar; Jing Che"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global-options, include=TRUE, results=TRUE, cache =TRUE}
+library(knitr)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE,
+                      message = FALSE, echo = TRUE,
+                      dpi = 180, fig.width = 8, fig.width = 5)
+library(tidyverse)
+library(ggplot2)
+library(sandwich)
+library(stargazer)
+library(GGally)
+library(lme4)
+library(MASS)
+library(readxl)
+
+```
+
+
+
+##set working directory
+```{r}
+setwd("C:/Users/santosh.kunwar/OneDrive/MSBMAS/R/MSBMAS")
+gc()
+rm(list = ls(all.names = TRUE))
+```
+##import datasets
+
+```{r, results=FALSE, echo=FALSE}
+library(readr)
+LOC <- readr::read_csv("List_of_Countries.csv")
+WBGII <- readr::read_csv("WorldBank_Global_Innovation_Index_2013_2020.csv")
+SDG_All <- readr::read_csv("01_SDG_All.csv")
+O_RE <- readr::read_csv("OECD_Renewable_Energy.csv")
+O_PET <- readr::read_csv("OECD_Patent_on_Env_Tech.csv")
+O_MW <- readr::read_csv("OECD_Municipal_Waste.csv")
+O_GDP <-readr::read_csv("OECD_GDP.csv")
+
+```

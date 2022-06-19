@@ -1,0 +1,37 @@
+---
+title: "MSBMAS"
+author: "Santosh Kunwar"
+date: '2022-06-19'
+output: word_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE,
+message = FALSE, echo = TRUE,
+dpi = 180, fig.width = 8, fig.width = 5)
+library(tidyverse)
+library(ggplot2)
+library(sandwich)
+library(stargazer)
+library(GGally)
+library(lme4)
+library(MASS)
+```
+
+##set working directory
+
+```{r}
+
+getwd()
+setwd("C:/Users/santosh.kunwar/OneDrive/MSBMAS/R/MSBMAS")
+gc()
+rm(list = ls(all.names = TRUE))
+
+```
+
+```{r}
+library(haven)
+#NMDD <- haven::read_sav("Norsk_Monitor_Total_1985-2019_SPSS_31mars.sav")
+
+```
